@@ -1,0 +1,60 @@
+function [R] = singleReward(files)
+%function [h, name] = plotCumulativeRegretSingle(folder, config, lineType, lineColour, lineWidth, name)
+    addpath('/media/ivan/ivan/scripts/matlab/csv/');
+    timeStep = config.timeStep;
+    dispStep = config.dispStep;
+    dispOffset = config.dispOffset;
+    episodeNum = config.episodeNum;
+    baseline = config.baseline;
+    playTrails = config.playTrails;
+    plotPlays = config.plotPlays;
+
+    R = zeros(length(files), 1);
+    M = [];
+    P = []; %zeros(model_changes_num, 1);
+    for i=1:length(files)
+       % if (files(i), '.csv')
+            % Read data
+            [data, ~] = readCsv(files(i));
+                
+            % calculate timesteps
+            if (timeStep == 0)
+                timeStep = (data(end, 1) - data(1, 1)) / (size(data, 1)-1);
+            end
+            timeSteps = timeStep*ones(size(data(:,1)));
+            
+            % calculate number of episodes, to normalise later
+            % !!! Most crusual thing in calculating from CSV
+            starts = (data(:, 2)==0) & (data(:, 4)==0) & (data(:, 5) == 0);
+        
+            numEpisodes = sum(starts);
+            timeSteps(starts) = 0; 
+            
+            R(, :) = cartpoleRewards(timeSteps, data(:, 2), data(:, 3), ...
+                data(:, 4), data(:, 5));
+            R(end) = R(end) / numEpisodes;
+%         else
+%             % try to load cr file
+%             fileName = sprintf('%s/sd_%0.2f.cr', folder, modelChanges(i));
+%             [l, p] = readCr(fileName, dispStep, dispOffset, playTrails);
+%             
+%             if (isempty(l) || isempty(p))
+%                 continue;
+%             end
+% 
+%             M(end+1) = i;
+%             if (dispStep)
+%                 l = l' / (dispStep - dispOffset - playTrails);
+%                 C(end+1,:) = l;
+%             else
+%                 C(i) = l(end) / (size(l, 1)-1);
+%             end
+%             
+%             if (playTrails ~= 0)
+%                 p = p' / playTrails;
+%                 P(end+1,:) = p;
+%             end
+%         end
+    end
+    
+end

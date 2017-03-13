@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo -en "\033[1;32m --- Establish connection --- \033[0m\n"
+ssh ikoryakovskiy@ikserver -t "cd grl/qt-build && tmux new -d -s ivan1"

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+echo -en "\033[1;31m --- Kill session --- \033[0m\n"
+echo -en "\033[1;31m Are you sure?  [Y/n] \033[0m\n"
+read -n 1 -r
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    ssh drastogi@dbl -t "tmux kill-session -t divyam"
+fi
+
+
+

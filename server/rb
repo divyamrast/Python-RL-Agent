@@ -1,0 +1,13 @@
+#!/bin/bash
+
+echo -en "\033[1;32m --- Checkout and build source code --- \033[0m\n"
+ssh drastogi@dbl "cd grl/src/grl && git reset --hard"
+ssh drastogi@dbl "cd grl/src/grl && git clean -fd"
+ssh drastogi@dbl "cd grl/src/grl && git checkout master"
+ssh drastogi@dbl "cd grl/src/grl && git pull"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git reset --hard"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git clean -fd"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git checkout master"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git pull"
+ssh drastogi@dbl "cd grl/qt-build/cfg && python build.py"
+

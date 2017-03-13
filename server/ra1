@@ -1,0 +1,4 @@
+#!/bin/bash
+echo -en "\033[1;32m --- Attach --- \033[0m\n"
+ssh ikoryakovskiy@ikserver -t "tmux attach -t ivan1"
+

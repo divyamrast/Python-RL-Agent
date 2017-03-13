@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo -en "\033[1;32m --- Download results --- \033[0m\n"
+ssh drastogi@dbl "cd grl/qt-build && tar --use-compress-program=pbzip2 --exclude CMake*.txt -cf results.tar.bz2 leo_leosim_dsarsa_walk_egreedy-*.dat"
+scp drastogi@dbl:~/grl/qt-build/results.tar.bz2 qt-build/
+tar --use-compress-program=pbzip2 -xvf qt-build/results.tar.bz2 -C qt-build/
+#tar xvf qt-build/results.tar -C qt-build/
+rm qt-build/results.tar.bz2
+

@@ -1,0 +1,11 @@
+function D = csvRead(filename)
+    % Read lines from input file
+    fid = fopen(filename, 'r');
+    C = textscan(fid, '%s', 'Delimiter', '\n');
+    fclose(fid);
+
+    % Search a specific string and find all rows containing matches
+    C = strfind(C{1}, 'DATA:');
+    rows = find(~cellfun('isempty', C));
+    D = csvread(filename, rows(1), 0);
+end

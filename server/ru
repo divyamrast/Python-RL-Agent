@@ -1,0 +1,5 @@
+ssh drastogi@dbl "cd grl/src/grl && git pull"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git commit -am \"Automatic commit\""
+ssh drastogi@dbl "cd grl/qt-build/cfg && git pull"
+ssh drastogi@dbl "cd grl/qt-build/cfg && git push"
+

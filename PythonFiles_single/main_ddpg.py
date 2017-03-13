@@ -52,7 +52,8 @@ MIN_BUFFER_SIZE = 1000
 # Environment Parameters
 ACTION_DIMS = 6
 OBSERVATION_DIMS = 14
-ACTION_BOUND = 8.6
+ACTION_BOUND = 2
+ACTION_BOUND_REAL = 8.6
 # Noise Parameters
 NOISE_MEAN = 0
 NOISE_VAR = 1
@@ -186,7 +187,7 @@ class CriticNetwork(object):
     def create_critic_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         action = tflearn.input_data(shape=[None, self.a_dim])
-        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1")
+        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLrayer1")
 
         # Add the action tensor in the 2nd hidden layer
         # Use two temp layers to get the corresponding weights and biases
@@ -281,8 +282,8 @@ def compute_action(test_agent, actor, mod_state, noise):
 
     action = np.reshape(action, (ACTION_DIMS,))
 
-    action = np.clip(action, -ACTION_BOUND, ACTION_BOUND)
-    clip_action = action
+    action = np.clip(action, -1, 1)
+    clip_action = action*ACTION_BOUND_REAL
     return action, clip_action
 
 
@@ -377,13 +378,12 @@ def train(args, sess, actor, critic):
 
             # Compute OU noise
             noise = ExplorationNoise.ou_noise(OU_THETA, OU_MU, ou_sigma, noise, ACTION_DIMS)
-            scaled_noise = noise * ACTION_BOUND
 
             # Compute action
-            computed_action, clip_action = compute_action(test_agent, actor, mod_state, scaled_noise)
-
+            computed_action, scaled_action = compute_action(test_agent, actor, mod_state, noise)
+            # print computed_action, scaled_action
             # Convert action into null terminated string 
-            action_message = struct.pack('d' * ACTION_DIMS, *clip_action)
+            action_message = struct.pack('d' * ACTION_DIMS, *scaled_action)
 
             # Sends the predicted action via zeromq
             server.send(action_message)
@@ -437,7 +437,7 @@ def train(args, sess, actor, critic):
 def main(args):
     with tf.Session() as sess:
         # Initialize the actor and critic networks
-        actor = ActorNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, ACTION_BOUND, \
+        actor = ActorNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, 1, \
                              ACTOR_LEARNING_RATE, TAU)
 
         critic = CriticNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, CRITIC_LEARNING_RATE, TAU,
