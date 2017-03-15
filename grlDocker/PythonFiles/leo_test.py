@@ -39,7 +39,7 @@ def main():
     # rl_run(args, ["leo/ou_test/leosim_sarsa_walk_ou2.yaml"], range(runs))
     # rl_run_param(args, ["leo/ou_test/leosim_sarsa_walk_softmax.yaml"], range(runs), [0.3, 0.4, 0.5])
     # rl_run_ou_grid_search(args, ["leo/ou_test/leosim_sarsa_walk_ou.yaml"], range(runs))
-    list_of_new_cfgs = rl_run_zmqagent(["PythonFiles/leo_zmqagent.yaml"], range(runs))
+    list_of_new_cfgs = rl_run_zmqagent(["/PythonFiles/leo_zmqagent.yaml"], range(runs))
 
     do_multiprocessing_pool(args, list_of_new_cfgs)	
     
@@ -273,7 +273,7 @@ def read_cfg(cfg):
 def read_cfg_divyam(cfg):
     """Read configuration file"""
     # check if file exists
-    yfile = './%s' % cfg
+    yfile = '/%s' % cfg
     if os.path.isfile(yfile) == False:
         print 'File %s not found' % yfile
         sys.exit()

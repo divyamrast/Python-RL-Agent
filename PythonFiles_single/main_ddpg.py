@@ -187,7 +187,7 @@ class CriticNetwork(object):
     def create_critic_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         action = tflearn.input_data(shape=[None, self.a_dim])
-        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLrayer1")
+        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1")
 
         # Add the action tensor in the 2nd hidden layer
         # Use two temp layers to get the corresponding weights and biases

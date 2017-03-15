@@ -50,13 +50,14 @@ MONITOR_DIR = './results/gym_ddpg'
 SUMMARY_DIR = './results/tf_ddpg'
 RANDOM_SEED = 1234
 # Size of replay buffer
-BUFFER_SIZE = 100000
+BUFFER_SIZE = 1000000
 MINIBATCH_SIZE = 64
 MIN_BUFFER_SIZE = 1000
 # Environment Parameters
 ACTION_DIMS = 6
 OBSERVATION_DIMS = 14
 ACTION_BOUND = 2
+ACTION_BOUND_REAL = 8.6
 # Noise Parameters
 NOISE_MEAN = 0
 NOISE_VAR = 1
@@ -175,7 +176,8 @@ class CriticNetwork(object):
         # Op for periodically updating target network with online network weights with regularization
         self.update_target_network_params = \
             [self.target_network_params[i].assign(
-                tf.multiply(self.network_params[i], self.tau) + tf.multiply(self.target_network_params[i], 1. - self.tau))
+                tf.multiply(self.network_params[i], self.tau) + tf.multiply(self.target_network_params[i],
+                                                                            1. - self.tau))
              for i in range(len(self.target_network_params))]
 
         # Network target (y_i)
@@ -280,14 +282,14 @@ def check_for_policy_save(config):
 def compute_action(test_agent, actor, mod_state, noise):
     if test_agent:
         action = actor.predict(np.reshape(mod_state, (1, actor.s_dim)))
-        time.sleep(0.05)
+        # time.sleep(0.1)
     else:
         action = actor.predict(np.reshape(mod_state, (1, actor.s_dim))) + noise
 
     action = np.reshape(action, (ACTION_DIMS,))
 
-    action = np.clip(action, -ACTION_BOUND, ACTION_BOUND)
-    clip_action = action
+    action = np.clip(action, -1, 1)
+    clip_action = action*ACTION_BOUND_REAL
     return action, clip_action
 
 
@@ -381,13 +383,13 @@ def train(args, sess, actor, critic):
 
             # Compute OU noise
             noise = ExplorationNoise.ou_noise(OU_THETA, OU_MU, ou_sigma, noise, ACTION_DIMS)
-            scaled_noise = noise * ACTION_BOUND
+
 
             # Compute action
-            computed_action, clip_action = compute_action(test_agent, actor, mod_state, scaled_noise)
-
+            computed_action, scaled_action = compute_action(test_agent, actor, mod_state, noise)
+            # print computed_action, scaled_action
             # Convert action into null terminated string 
-            action_message = struct.pack('d' * ACTION_DIMS, *clip_action)
+            action_message = struct.pack('d' * ACTION_DIMS, *scaled_action)
 
             # Sends the predicted action via zeromq
             server.send(action_message)
@@ -438,10 +440,17 @@ def train(args, sess, actor, critic):
                 break
 
 
-def main(args):
+def tf_start(args):
+    # global counter
+    # global proc_per_processor
+    # with counter_lock:
+    #     wait = counter.value
+    #     counter.value += 2
+    # time.sleep(wait)
+
     with tf.Session() as sess:
         # Initialize the actor and critic networks
-        actor = ActorNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, ACTION_BOUND, \
+        actor = ActorNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, 1, \
                              ACTOR_LEARNING_RATE, TAU)
 
         critic = CriticNetwork(sess, OBSERVATION_DIMS, ACTION_DIMS, CRITIC_LEARNING_RATE, TAU,
@@ -450,10 +459,31 @@ def main(args):
         # Train the network
         train(args, sess, actor, critic)
 
-if __name__ == '__main__':
-    # tf.app.run()
-    # parse arguments
-
-    pool = multiprocessing.Pool()
+def main():
     list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
-    pool.map(main, list_of_cfgs)
+
+    pool = multiprocessing.Pool(4, initializer=init, initargs=(counter, proc_per_processor))
+    pool.map(tf_start, list_of_cfgs)
+
+    pool.close()
+
+def init(cnt, num):
+    global counter
+    global proc_per_processor
+
+    counter = cnt
+    proc_per_processor = num
+
+
+if __name__ == '__main__':
+    main()
+    # # tf.app.run()
+    # # parse arguments
+    # list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
+    # #
+    # counter = multiprocessing.Value('i', 0)
+    # proc_per_processor = multiprocessing.Value('d', 1)
+    # print 'proc_per_processor {0}'.format(proc_per_processor.value)
+    # pool = multiprocessing.Pool(4, initializer=init, initargs=(counter, proc_per_processor))
+    # pool.map(main, list_of_cfgs)
+    # main(list_of_cfgs[0])

@@ -76,3 +76,4 @@ RUN git clone https://github.com/divyamrast/grl.git -b master; \
     make -j5
 
 
+#CMD ["./PythonFiles/ra.sh"]
