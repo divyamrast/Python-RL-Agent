@@ -193,12 +193,12 @@ class CriticNetwork(object):
     def create_critic_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         action = tflearn.input_data(shape=[None, self.a_dim])
-        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1")
+        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1", regularizer='L2', weight_decay=0.01)
 
         # Add the action tensor in the 2nd hidden layer
         # Use two temp layers to get the corresponding weights and biases
-        critic_layer2 = tflearn.fully_connected(critic_layer1, 300, name="criticLayer2")
-        critic_layer3 = tflearn.fully_connected(action, 300, name="criticLayerAction")
+        critic_layer2 = tflearn.fully_connected(critic_layer1, 300, name="criticLayer2", regularizer='L2', weight_decay=0.01)
+        critic_layer3 = tflearn.fully_connected(action, 300, name="criticLayerAction", regularizer='L2', weight_decay=0.01)
 
         net = tflearn.activation(tf.matmul(critic_layer1, critic_layer2.W) + tf.matmul(action, critic_layer3.W) +
                                  critic_layer3.b, activation='relu')
@@ -282,7 +282,7 @@ def check_for_policy_save(config):
 def compute_action(test_agent, actor, mod_state, noise):
     if test_agent:
         action = actor.predict(np.reshape(mod_state, (1, actor.s_dim)))
-        # time.sleep(0.1)
+        time.sleep(0.5)
     else:
         action = actor.predict(np.reshape(mod_state, (1, actor.s_dim))) + noise
 
