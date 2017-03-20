@@ -436,7 +436,7 @@ def train(args, sess, actor, critic):
                 if save_counter != 0 and episode_count % save_counter == 0 and episode_count != 0:
                     saver = tf.train.Saver()
                     saver.save(sess, "model-mp-{}".format(multiprocessing.current_process().name))
-                    ou_sigma *= 0.99
+                    ou_sigma *= 0.97
                 break
 
 
@@ -462,17 +462,17 @@ def tf_start(args):
 def main():
     list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
 
-    pool = multiprocessing.Pool(4, initializer=init, initargs=(counter, proc_per_processor))
+    pool = multiprocessing.Pool(4)
     pool.map(tf_start, list_of_cfgs)
 
     pool.close()
 
-def init(cnt, num):
-    global counter
-    global proc_per_processor
-
-    counter = cnt
-    proc_per_processor = num
+# def init(cnt, num):
+#     global counter
+#     global proc_per_processor
+#
+#     counter = cnt
+#     proc_per_processor = num
 
 
 if __name__ == '__main__':
