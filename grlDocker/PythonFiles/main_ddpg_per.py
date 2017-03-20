@@ -35,7 +35,7 @@ MAX_STEPS_EPISODE = 1010
 ACTOR_LEARNING_RATE = 0.0001
 # Base learning rate for the Critic Network
 CRITIC_LEARNING_RATE = 0.001
-# Discount factor 
+# Discount factor
 GAMMA = 0.99
 # Soft target update param
 TAU = 0.001
@@ -66,6 +66,7 @@ OU_THETA = 0.15
 OU_MU = 0
 OU_SIGMA = 0.2
 RUNS = 2
+RATIO = 0.25
 
 
 # ===========================
@@ -108,7 +109,7 @@ class ActorNetwork(object):
         # This gradient will be provided by the critic network
         self.action_gradient = tf.placeholder(tf.float32, [None, self.a_dim])
 
-        # Combine the gradients here 
+        # Combine the gradients here
         self.actor_gradients = tf.gradients(self.scaled_out, self.network_params, -self.action_gradient)
 
         # Optimization Op
@@ -152,7 +153,7 @@ class ActorNetwork(object):
 
 
 class CriticNetwork(object):
-    """ 
+    """
     Input to the network is the state and action, output is Q(s,a).
     The action must be obtained from the output of the Actor network.
     """
@@ -193,17 +194,20 @@ class CriticNetwork(object):
     def create_critic_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         action = tflearn.input_data(shape=[None, self.a_dim])
-        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1", regularizer='L2', weight_decay=0.01)
+        critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1", regularizer='L2',
+                                                weight_decay=0.01)
 
         # Add the action tensor in the 2nd hidden layer
         # Use two temp layers to get the corresponding weights and biases
-        critic_layer2 = tflearn.fully_connected(critic_layer1, 300, name="criticLayer2", regularizer='L2', weight_decay=0.01)
-        critic_layer3 = tflearn.fully_connected(action, 300, name="criticLayerAction", regularizer='L2', weight_decay=0.01)
+        critic_layer2 = tflearn.fully_connected(critic_layer1, 300, name="criticLayer2", regularizer='L2',
+                                                weight_decay=0.01)
+        critic_layer3 = tflearn.fully_connected(action, 300, name="criticLayerAction", regularizer='L2',
+                                                weight_decay=0.01)
 
         net = tflearn.activation(tf.matmul(critic_layer1, critic_layer2.W) + tf.matmul(action, critic_layer3.W) +
                                  critic_layer3.b, activation='relu')
 
-        # linear layer connected to 1 output representing Q(s,a) 
+        # linear layer connected to 1 output representing Q(s,a)
         # Weights are init to Uniform[-3e-3, 3e-3]
         w_init = tflearn.initializations.uniform(minval=-0.003, maxval=0.003)
         critic_output = tflearn.fully_connected(net, 1, weights_init=w_init)
@@ -289,7 +293,7 @@ def compute_action(test_agent, actor, mod_state, noise):
     action = np.reshape(action, (ACTION_DIMS,))
 
     action = np.clip(action, -1, 1)
-    clip_action = action*ACTION_BOUND_REAL
+    clip_action = action * ACTION_BOUND_REAL
     return action, clip_action
 
 
@@ -322,7 +326,8 @@ def train(args, sess, actor, critic):
     critic.update_target_network()
 
     # Initialize replay memory
-    replay_buffer = ReplayBuffer(BUFFER_SIZE, RANDOM_SEED)
+    replay_buffer_pos = ReplayBuffer(BUFFER_SIZE, RANDOM_SEED)
+    replay_buffer_neg = ReplayBuffer(BUFFER_SIZE, RANDOM_SEED=234)
 
     # Initialize constants for exploration noise
     episode_count = 0
@@ -372,23 +377,32 @@ def train(args, sess, actor, critic):
 
             # Add the transition to replay buffer
             if not episode_start and not test_agent:
-                if terminal == 2:
-                    replay_buffer.add(np.reshape(mod_old_state, (actor.s_dim,)),
-                                      np.reshape(computed_action, (actor.a_dim,)),
-                                      reward, True, np.reshape(mod_state, (actor.s_dim,)))
+                if reward > 0:
+                    if terminal == 2:
+                        replay_buffer_pos.add(np.reshape(mod_old_state, (actor.s_dim,)),
+                                              np.reshape(computed_action, (actor.a_dim,)),
+                                              reward, True, np.reshape(mod_state, (actor.s_dim,)))
+                    else:
+                        replay_buffer_pos.add(np.reshape(mod_old_state, (actor.s_dim,)),
+                                              np.reshape(computed_action, (actor.a_dim,)),
+                                              reward, False, np.reshape(mod_state, (actor.s_dim,)))
                 else:
-                    replay_buffer.add(np.reshape(mod_old_state, (actor.s_dim,)),
-                                      np.reshape(computed_action, (actor.a_dim,)),
-                                      reward, False, np.reshape(mod_state, (actor.s_dim,)))
+                    if terminal == 2:
+                        replay_buffer_neg.add(np.reshape(mod_old_state, (actor.s_dim,)),
+                                              np.reshape(computed_action, (actor.a_dim,)),
+                                              reward, True, np.reshape(mod_state, (actor.s_dim,)))
+                    else:
+                        replay_buffer_neg.add(np.reshape(mod_old_state, (actor.s_dim,)),
+                                              np.reshape(computed_action, (actor.a_dim,)),
+                                              reward, False, np.reshape(mod_state, (actor.s_dim,)))
 
             # Compute OU noise
             noise = ExplorationNoise.ou_noise(OU_THETA, OU_MU, ou_sigma, noise, ACTION_DIMS)
 
-
             # Compute action
             computed_action, scaled_action = compute_action(test_agent, actor, mod_state, noise)
             # print computed_action, scaled_action
-            # Convert action into null terminated string 
+            # Convert action into null terminated string
             action_message = struct.pack('d' * ACTION_DIMS, *scaled_action)
 
             # Sends the predicted action via zeromq
@@ -396,9 +410,13 @@ def train(args, sess, actor, critic):
 
             # Keep adding experience to the memory until
             # there are at least minibatch size samples
-            if replay_buffer.size() > MIN_BUFFER_SIZE:
+            if replay_buffer_pos.size() > MIN_BUFFER_SIZE and replay_buffer_neg.size() > MIN_BUFFER_SIZE:
+                minibatch_size_pos = int(math.floor(RATIO * MINIBATCH_SIZE))
+                minibatch_size_neg = MINIBATCH_SIZE - minibatch_size_pos
+
                 s_batch, a_batch, r_batch, t_batch, s2_batch = \
-                    replay_buffer.sample_batch(MINIBATCH_SIZE)
+                    np.concatenate(replay_buffer_pos.sample_batch(minibatch_size_pos),
+                                   replay_buffer_neg.sample_batch(minibatch_size_neg))
 
                 # Calculate targets
                 target_q = critic.predict_target(s2_batch, actor.predict_target(s2_batch))
@@ -423,8 +441,6 @@ def train(args, sess, actor, critic):
                 # Update target networks
                 actor.update_target_network()
                 critic.update_target_network()
-
-            # old_state = state
 
             mod_old_state = mod_state
 
@@ -459,6 +475,7 @@ def tf_start(args):
         # Train the network
         train(args, sess, actor, critic)
 
+
 def main():
     list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
 
@@ -466,6 +483,7 @@ def main():
     pool.map(tf_start, list_of_cfgs)
 
     pool.close()
+
 
 def init(cnt, num):
     global counter
