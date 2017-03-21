@@ -488,7 +488,7 @@ def tf_start(args):
 def main():
     list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
 
-    pool = multiprocessing.Pool(4)
+    pool = multiprocessing.Pool()
     pool.map(tf_start, list_of_cfgs)
 
     pool.close()

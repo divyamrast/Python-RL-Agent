@@ -120,9 +120,11 @@ class ActorNetwork(object):
     def create_actor_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         actor_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="actorLayer1",
-                                               weights_init=tflearn.initializations.uniform(minval=-1/math.sqrt(self.s_dim),maxval=1/math.sqrt(self.s_dim)))
+                                               weights_init=tflearn.initializations.uniform(
+                                                   minval=-1 / math.sqrt(self.s_dim), maxval=1 / math.sqrt(self.s_dim)))
         actor_layer2 = tflearn.fully_connected(actor_layer1, 300, activation='relu', name="actorLayer2",
-                                               weights_init=tflearn.initializations.uniform(minval=-1/math.sqrt(400),maxval=1/math.sqrt(400)))
+                                               weights_init=tflearn.initializations.uniform(minval=-1 / math.sqrt(400),
+                                                                                            maxval=1 / math.sqrt(400)))
         # Final layer weights are init to Uniform[-3e-3, 3e-3]
         w_init = tflearn.initializations.uniform(minval=-0.003, maxval=0.003)
         actor_output = tflearn.fully_connected(actor_layer2, self.a_dim, activation='tanh', weights_init=w_init,
@@ -179,8 +181,8 @@ class CriticNetwork(object):
         self.update_target_network_params = \
             [self.target_network_params[i].assign(
                 tf.multiply(self.network_params[i], self.tau) + tf.multiply(self.target_network_params[i],
-                                                                            1. - self.tau))
-             for i in range(len(self.target_network_params))]
+                                                                            1. - self.tau)) for i in
+             range(len(self.target_network_params))]
 
         # Network target (y_i)
         self.predicted_q_value = tf.placeholder(tf.float32, [None, 1])
@@ -196,14 +198,23 @@ class CriticNetwork(object):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
         action = tflearn.input_data(shape=[None, self.a_dim])
         critic_layer1 = tflearn.fully_connected(inputs, 400, activation='relu', name="criticLayer1",
-                                                weights_init=tflearn.initializations.uniform(minval=-1/math.sqrt(self.s_dim),maxval=1/math.sqrt(self.s_dim)))
+                                                weights_init=tflearn.initializations.uniform(
+                                                    minval=-1 / math.sqrt(self.s_dim),
+                                                    maxval=1 / math.sqrt(self.s_dim)),
+                                                regularizer='L2', weight_decay=0.01)
 
         # Add the action tensor in the 2nd hidden layer
         # Use two temp layers to get the corresponding weights and biases
         critic_layer2 = tflearn.fully_connected(critic_layer1, 300, name="criticLayer2",
-                                                weights_init=tflearn.initializations.uniform(minval=-1/math.sqrt(400+self.a_dim),maxval=1/math.sqrt(400+self.a_dim)))
+                                                weights_init=tflearn.initializations.uniform(
+                                                    minval=-1 / math.sqrt(400 + self.a_dim),
+                                                    maxval=1 / math.sqrt(400 + self.a_dim)),
+                                                regularizer='L2', weight_decay=0.01)
         critic_layer3 = tflearn.fully_connected(action, 300, name="criticLayerAction",
-                                                weights_init = tflearn.initializations.uniform(minval=-1/math.sqrt(400+self.a_dim),maxval=1/math.sqrt(400 + self.a_dim)))
+                                                weights_init=tflearn.initializations.uniform(
+                                                    minval=-1 / math.sqrt(400 + self.a_dim),
+                                                    maxval=1 / math.sqrt(400 + self.a_dim)),
+                                                regularizer='L2', weight_decay=0.01)
 
         net = tflearn.activation(tf.matmul(critic_layer1, critic_layer2.W) + tf.matmul(action, critic_layer3.W) +
                                  critic_layer3.b, activation='relu')
@@ -294,7 +305,7 @@ def compute_action(test_agent, actor, mod_state, noise):
     action = np.reshape(action, (ACTION_DIMS,))
 
     action = np.clip(action, -1, 1)
-    clip_action = action*ACTION_BOUND_REAL
+    clip_action = action * ACTION_BOUND_REAL
     return action, clip_action
 
 
@@ -389,7 +400,6 @@ def train(args, sess, actor, critic):
             # Compute OU noise
             noise = ExplorationNoise.ou_noise(OU_THETA, OU_MU, ou_sigma, noise, ACTION_DIMS)
 
-
             # Compute action
             computed_action, scaled_action = compute_action(test_agent, actor, mod_state, noise)
             # print computed_action, scaled_action
@@ -464,13 +474,15 @@ def tf_start(args):
         # Train the network
         train(args, sess, actor, critic)
 
+
 def main():
     list_of_cfgs = leo_test.rl_run_zmqagent(['PythonFiles/leo_zmqagent.yaml'], range(RUNS))
 
-    pool = multiprocessing.Pool(4)
+    pool = multiprocessing.Pool()
     pool.map(tf_start, list_of_cfgs)
 
     pool.close()
+
 
 # def init(cnt, num):
 #     global counter
