@@ -216,12 +216,12 @@ def mp_run(cfg):
 #    main_ddpg.main(cfg)
 
 ######################################################################################
-# def init(cnt, num):
+def init(cnt, num):
     ''' store the counter for later use '''
-    # global counter
-    # global proc_per_processor
-    # counter = cnt
-    # proc_per_processor = num
+    global counter
+    global proc_per_processor
+    counter = cnt
+    proc_per_processor = num
 
 
 ######################################################################################
@@ -230,8 +230,7 @@ def do_multiprocessing_pool(args, list_of_new_cfgs):
     counter = multiprocessing.Value('i', 0)
     proc_per_processor = multiprocessing.Value('d', math.ceil(len(list_of_new_cfgs) / args.cores))
     print 'proc_per_processor {0}'.format(proc_per_processor.value)
-    # pool = multiprocessing.Pool(args.cores, initializer=init, initargs=(counter, proc_per_processor))
-    pool = multiprocessing.Pool(4)
+    pool = multiprocessing.Pool(args.cores, initializer=init, initargs=(counter, proc_per_processor))
     pool.map(mp_run, list_of_new_cfgs)
 	
     # pool_py = multiprocessing.Pool(1)
