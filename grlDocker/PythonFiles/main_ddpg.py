@@ -343,6 +343,7 @@ def train(args, sess, actor, critic):
     # Initialize constants for exploration noise
     episode_count = 0
     ou_sigma = OU_SIGMA
+    red_factor = 0.99
 
     # Establish the connection
     context = zmq.Context()
@@ -411,33 +412,38 @@ def train(args, sess, actor, critic):
 
             # Keep adding experience to the memory until
             # there are at least minibatch size samples
-            if replay_buffer.size() > MIN_BUFFER_SIZE:
-                s_batch, a_batch, r_batch, t_batch, s2_batch = \
-                    replay_buffer.sample_batch(MINIBATCH_SIZE)
+            if not test_agent:
+                if replay_buffer.size() > MIN_BUFFER_SIZE:
+                    s_batch, a_batch, r_batch, t_batch, s2_batch = \
+                        replay_buffer.sample_batch(MINIBATCH_SIZE)
 
-                # Calculate targets
-                target_q = critic.predict_target(s2_batch, actor.predict_target(s2_batch))
+                    # Calculate targets
+                    target_q = critic.predict_target(s2_batch, actor.predict_target(s2_batch))
 
-                y_i = []
-                for k in xrange(MINIBATCH_SIZE):
-                    if t_batch[k]:
-                        y_i.append(r_batch[k])
-                    else:
-                        y_i.append(r_batch[k] + GAMMA * target_q[k])
+                    y_i = []
+                    for k in xrange(MINIBATCH_SIZE):
+                        if t_batch[k]:
+                            y_i.append(r_batch[k])
+                        else:
+                            y_i.append(r_batch[k] + GAMMA * target_q[k])
 
-                # Update the critic given the targets
-                predicted_q_value, _ = critic.train(s_batch, a_batch, np.reshape(y_i, (MINIBATCH_SIZE, 1)))
+                    # Update the critic given the targets
+                    predicted_q_value, _ = critic.train(s_batch, a_batch, np.reshape(y_i, (MINIBATCH_SIZE, 1)))
 
-                ep_ave_max_q += np.amax(predicted_q_value)
+                    ep_ave_max_q += np.amax(predicted_q_value)
 
-                # Update the actor policy using the sampled gradient
-                a_outs = actor.predict(s_batch)
-                grads = critic.action_gradients(s_batch, a_outs)
-                actor.train(s_batch, grads[0])
+                    # Update the actor policy using the sampled gradient
+                    a_outs = actor.predict(s_batch)
+                    grads = critic.action_gradients(s_batch, a_outs)
+                    actor.train(s_batch, grads[0])
 
-                # Update target networks
-                actor.update_target_network()
-                critic.update_target_network()
+                    # Update target networks
+                    actor.update_target_network()
+                    critic.update_target_network()
+            else:
+                if ep_reward > 4000:
+                    red_factor = 0.01
+
 
             # old_state = state
 
@@ -451,7 +457,7 @@ def train(args, sess, actor, critic):
                 if save_counter != 0 and episode_count % save_counter == 0 and episode_count != 0:
                     saver = tf.train.Saver()
                     saver.save(sess, "model-mp-{}".format(multiprocessing.current_process().name))
-                    ou_sigma *= 0.97
+                    ou_sigma *= red_factor
                 break
 
 
